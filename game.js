@@ -24,6 +24,11 @@ const BALL_R = 9;         // ball radius
 
 const FLOOR_Y = H - 40;   // danger line near the bottom
 
+/* Wall thickness. These draw the frame the ball bounces off.
+   The ball already collides at the canvas edges (0 and W, top = 0);
+   drawing walls right there makes the boundary visible. */
+const WALL = 12;          // visible wall bar thickness (game units)
+
 /* Brick grid. Bottom rows are worth more points. */
 const ROWS     = 6;
 const COLS     = 12;
@@ -204,6 +209,7 @@ function draw() {
   ctx.beginPath(); ctx.moveTo(0, FLOOR_Y); ctx.lineTo(W, FLOOR_Y); ctx.stroke();
   ctx.setLineDash([]);
 
+  drawWalls();
   drawBricks();
   updateTrail();
   drawParticles();
@@ -252,6 +258,27 @@ function drawPaddle() {
   ctx.fillStyle = "rgba(255,255,255,0.7)";
   roundRect(px + 6, PADDLE_Y + 2, PADDLE_W - 12, 3, 2);
   ctx.fill();
+}
+
+/* Draw the frame (walls) the ball bounces off: top, left, right.
+   The ball bounces off the INNER face of these, so a wall bar
+   makes the boundary clear instead of blank space. */
+function drawWalls() {
+  // A thin glowing outline around the whole play area.
+  ctx.strokeStyle = "rgba(90,130,220,0.5)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(WALL / 2, WALL / 2, W - WALL, H - WALL);   // inner frame line
+
+  // A soft glowing bar on each bouncing edge (top, left, right).
+  ctx.fillStyle = "rgba(120,160,255,0.22)";
+  // Top wall
+  ctx.fillRect(0, 0, W, WALL);
+  // Left wall
+  ctx.fillRect(0, 0, WALL, H);
+  // Right wall
+  ctx.fillRect(W - WALL, 0, WALL, H);
+
+  ctx.lineWidth = 1;
 }
 
 function drawBall() {
@@ -333,7 +360,8 @@ function movePaddle() {
   // Only use the mouse when no arrow key is held.
   if (!left && !right && mouseX !== null) paddle.x = mouseX;
 
-  paddle.x = clamp(paddle.x, PADDLE_W / 2, W - PADDLE_W / 2);
+  // Keep the paddle inside the play area (the walls).
+  paddle.x = clamp(paddle.x, WALL + PADDLE_W / 2, W - WALL - PADDLE_W / 2);
 
   // If the ball is still resting, it rides along on the paddle.
   if (!ball.active) ball.x = paddle.x;
@@ -350,9 +378,9 @@ function moveBall() {
   ball.x += ball.dx;
   ball.y += ball.dy;
 
-  if (ball.x - BALL_R < 0)         { ball.x = BALL_R;        ball.dx = Math.abs(ball.dx); }
-  if (ball.x + BALL_R > W)         { ball.x = W - BALL_R;     ball.dx = -Math.abs(ball.dx); }
-  if (ball.y - BALL_R < 0)         { ball.y = BALL_R;         ball.dy = Math.abs(ball.dy); }
+  if (ball.x - BALL_R < WALL)     { ball.x = WALL + BALL_R;      ball.dx = Math.abs(ball.dx); }
+  if (ball.x + BALL_R > W - WALL) { ball.x = W - WALL - BALL_R;  ball.dx = -Math.abs(ball.dx); }
+  if (ball.y - BALL_R < WALL)     { ball.y = WALL + BALL_R;      ball.dy = Math.abs(ball.dy); }
 }
 
 function checkPaddleHit() {
