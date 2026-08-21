@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Block Break · Made by Lucas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <!-- The title at the top -->
+    <header>
+      <h1>🧱 Block Break</h1>
+      <p class="subtitle">Bounce the ball, smash every brick. Made by Lucas.</p>
+    </header>
+
+    <!-- All the game info sits above the play area -->
+    <div class="hud">
+      <div class="stat">
+        <span class="label">Score</span>
+        <span class="value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">Best</span>
+        <span class="value" id="best">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">Lives</span>
+        <span class="value" id="lives">&#10084;&#10084;&#10084;</span>
+      </div>
+    </div>
+
+    <!-- The stage is a box that holds the canvas and the message on top -->
+    <div class="stage">
+      <!-- The canvas is where the game is drawn -->
+      <canvas id="gameCanvas" width="800" height="520"></canvas>
+
+      <!-- Message that appears over the canvas (Start / Win / Lost) -->
+      <div class="message" id="message">
+        <h2>Ready?</h2>
+        <p>Move your mouse to aim the paddle.<br>Don't let the ball touch the floor!</p>
+        <button id="startBtn" class="btn">▶ Start Game</button>
+      </div>
+    </div>
+
+    <!-- The buttons under the game -->
+    <div class="controls">
+      <button id="pauseBtn" class="btn small">⏸ Pause</button>
+      <button id="resumeBtn" class="btn small">▶ Resume</button>
+      <button id="restartBtn" class="btn small">↻ Restart</button>
+    </div>
+
+    <!-- Quick instructions for dad -->
+    <div class="howto">
+      <h2>How to play</h2>
+      <p>Move your mouse (or the ← → arrow keys) to slide the paddle.<br>
+         Smash every brick to clear the level. Each level gets a bit faster.<br>
+         Three bricks left to smash on the bottom row give you an extra life.</p>
+    </div>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>

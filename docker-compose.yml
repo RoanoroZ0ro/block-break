@@ -1,0 +1,11 @@
+# docker-compose.yml - runs the Block Break game in a small nginx web server
+# "docker compose up -d" starts it, then open http://localhost:8092
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8093:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

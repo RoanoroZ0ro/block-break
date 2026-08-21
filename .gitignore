@@ -1,0 +1,6 @@
+# Files local to this machine that don't belong on the public GitHub site
+node_modules/
+.vscode/
+
+# git itself
+.git/

@@ -1,0 +1,147 @@
+/* style.css - styles you can see on the page.
+   We use a dark background so the bricks pop. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #12142b;              /* deep night-sky blue */
+  color: #fff;
+}
+
+/* Everything sits in a centred column */
+main {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  text-align: center;
+}
+
+/* ---------- Title ---------- */
+header h1 {
+  font-size: 2.4rem;
+  margin: 0;
+  color: #ffd23e;  /* gold */
+  text-shadow: 0 3px 0 #b8860b;
+}
+
+.subtitle {
+  margin-top: 4px;
+  color: #9db3d8;
+  font-style: italic;
+}
+
+/* ---------- Score / lives bar ---------- */
+.hud {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 10px;
+}
+
+.hud .stat .label {
+  display: block;
+  font-size: 0.8rem;
+  color: #7e8cb8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.hud .stat .value {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+#score { color: #ffd23e; }
+#best  { color: #6ee7b7; }
+
+/* ---------- The canvas area ---------- */
+.stage {
+  position: relative;      /* the message sits *inside* this box */
+  width: 800px;
+  margin: 0 auto;
+}
+
+#gameCanvas {
+  background: #1a1f38;
+  border: 3px solid #3a4a7a;
+  border-radius: 12px;
+}
+
+/* ---------- The message box that floats over the canvas ---------- */
+.message {
+  /* Stretches over the whole canvas, same size as it */
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 12, 30, 0.82);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 12px;
+  z-index: 5;
+}
+
+.message h2 {
+  font-size: 2rem;
+  margin: 0;
+  color: #ffd23e;
+}
+
+.message p {
+  text-align: center;
+  line-height: 1.5;
+  color: #c7d2f0;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  background: #ffd23e;
+  color: #1a1a2e;
+  border: none;
+  padding: 14px 34px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: transform 0.08s;
+}
+
+.btn:hover  { transform: scale(1.05); }
+.btn:active { transform: scale(0.95); }
+
+.btn.small {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 18px;
+  background: #3a4a7a;
+  color: #fff;
+}
+
+/* ---------- Buttons under the game ---------- */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+/* ---------- How-to-play block ---------- */
+.howto {
+  margin-top: 18px;
+  color: #9db3e6;
+  line-height: 1.6;
+}
+
+.howto h2 {
+  color: #6ee7b7;
+  font-size: 1.2rem;
+  margin-bottom: 6px;
+}
