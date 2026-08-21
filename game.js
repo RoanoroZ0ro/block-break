@@ -32,7 +32,7 @@ const WALL = 12;          // visible wall bar thickness (game units)
 /* Brick grid. Bottom rows are worth more points. */
 const ROWS     = 6;
 const COLS     = 12;
-const BRICK_W  = 110;
+const BRICK_W  = 73;
 const BRICK_H  = 24;
 const GAP      = 5;
 const BRICK_TOP = 60;
@@ -101,19 +101,24 @@ document.getElementById("restartBtn").addEventListener("click",    showStart);
 document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
 startBtn.addEventListener("click", startLevel);
 
-/* Track arrow keys held down. */
+/* Track key held-down state (the new combined keydown handler below
+   also adds Space to launch). */
 const KEYS = {};
-document.addEventListener("keydown", (e) => {
-  KEYS[e.key] = true;
-  // Prevent arrow keys from scrolling the page
-  if (["ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
-});
 document.addEventListener("keyup", (e) => { KEYS[e.key] = false; });
 
 /* Follow the mouse, converting screen pixels back into logical units. */
 canvasEl.addEventListener("mousemove", (e) => {
   const rect = canvasEl.getBoundingClientRect();
   mouseX = (e.clientX - rect.left) / scale;
+});
+
+/* Click on the canvas to launch the ball when it's resting on the paddle
+   (e.g. after you lose a life). */
+canvasEl.addEventListener("mousedown", () => { launchIfResting(); });
+document.addEventListener("keydown", (e) => {
+  KEYS[e.key] = true;
+  if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); launchIfResting(); }
+  if (["ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
 });
 
 /* ============================================================
@@ -501,9 +506,24 @@ function showStart() {
 function startLevel() {
   messageEl.style.visibility = "hidden";
   running = true;
-  ball.active = true;
-  ball.dy = -ball.speed;
+  launchBall();
   frame();
+}
+
+/* Launch the ball when it's resting on the paddle (a small sideways
+   nudge so it doesn't always go perfectly straight up). */
+function launchBall() {
+  if (ball.active) return;              // already moving
+  ball.active = true;
+  ball.dx = (Math.random() - 0.5) * 3;  // a little sideways start
+  ball.dy = -ball.speed;                // up (negative y)
+}
+
+/* Click / Space: if the ball is resting mid-game (after losing a life),
+   launch it. The big Start button handles the menu. */
+function launchIfResting() {
+  if (!running || ball.active) return;  // only when playing + resting
+  launchBall();
 }
 
 function pauseGame()  { running = false; }
@@ -537,8 +557,11 @@ function showLose() {
 function updateHUD() {
   scoreEl.textContent = score;
   bestEl.textContent = Math.max(best, score);
+  // Show only the hearts you actually have (no empties - clearer than "3 of 5").
+  // You start with 3 and can earn up to a few more by clearing levels.
   let hearts = "";
-  for (let i = 0; i < 5; i++) hearts += i < lives ? "&#9829;" : "&#9825;";
+  for (let i = 0; i < lives; i++) hearts += "&#9829;";
+  if (lives <= 0) hearts = "&#9760;";   // no lives left -> grey broken heart
   livesEl.innerHTML = hearts;
 }
 
