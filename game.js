@@ -114,6 +114,7 @@ document.getElementById("pauseBtn").addEventListener("click",      pauseGame);
 document.getElementById("resumeBtn").addEventListener("click",     resumeGame);
 document.getElementById("restartBtn").addEventListener("click",    showStart);
 document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
+document.getElementById("musicBtn").addEventListener("click",      toggleMusic);
 
 startBtn.addEventListener("click", () => {
   if (pendingRestart) showStart();   // full reset first
@@ -780,6 +781,110 @@ function updateHUD() {
 }
 
 /* ============================================================
+   13b. CHILL MUSIC (generated with the Web Audio API)
+   No audio files needed - we build a soft, dreamy lo-fi loop
+   from scratch: mellow pad chords + a sparkly little melody.
+   It starts on the first click (browsers block sound until
+   you interact with the page), and you can mute it anytime.
+   ============================================================ */
+const musicBtn = document.getElementById("musicBtn");
+
+let audioCtx = null;        // the audio engine (made on first click)
+let musicOn = true;         // is the music allowed to play?
+let musicTimer = null;      // timer that schedules the notes
+let chordIndex = 0;         // where we are in the chord loop
+let nextNoteTime = 0;       // when the next note should start
+
+/* A gentle loop of chords. Each entry is an array of MIDI notes
+   (60 = middle C). These are calm, jazzy "7th" chords. */
+const CHORDS = [
+  [60, 64, 67, 71],   // Cmaj7  (C E G B)
+  [57, 60, 64, 67],   // Am7    (A C E G)
+  [53, 57, 60, 64],   // Fmaj7  (F A C E)
+  [55, 59, 62, 65],   // G7     (G B D F)
+];
+/* The pretty melody line on top (MIDI notes, rests = null). */
+const MELODY = [72, null, 76, 74, 72, null, 67, 69, 71, null, 72, 74, 76, 74, 72, null];
+
+/* Turn a MIDI note number into a real frequency (Hz). */
+function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+/* Play one soft pad note (used for the chords). */
+function playPad(freq, start, dur) {
+  if (!audioCtx || !musicOn) return;
+  const osc = audioCtx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.value = freq;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, start);
+  g.gain.linearRampToValueAtTime(0.06, start + 0.4);  // fade in
+  g.gain.linearRampToValueAtTime(0, start + dur);     // fade out
+  osc.connect(g);
+  g.connect(audioCtx.masterNode);
+  osc.start(start);
+  osc.stop(start + dur + 0.1);
+}
+
+/* Play one bright melody note. */
+function playMelody(freq, start) {
+  if (!audioCtx || !musicOn) return;
+  const osc = audioCtx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, start);
+  g.gain.linearRampToValueAtTime(0.09, start + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + 1.1);
+  osc.connect(g);
+  g.connect(audioCtx.masterNode);
+  osc.start(start);
+  osc.stop(start + 1.2);
+}
+
+/* Schedule the next few seconds of chill music. */
+function scheduleNotes() {
+  if (!audioCtx) return;
+  const step = 0.5;    // each note/beat is half a second
+
+  while (nextNoteTime < audioCtx.currentTime + 1.5) {
+    const chord = CHORDS[chordIndex];
+    // Play the whole chord as a soft pad.
+    for (const midi of chord) {
+      playPad(midiToFreq(midi), nextNoteTime, step * 4);
+    }
+    // Play the melody note sitting on this beat.
+    const mel = MELODY[chordIndex % MELODY.length];
+    if (mel !== null) playMelody(midiToFreq(mel), nextNoteTime);
+    nextNoteTime += step;
+    chordIndex++;
+  }
+}
+
+/* Turn the music on / off from the 🎵 button. */
+function toggleMusic() {
+  if (!audioCtx) return;   // nothing to mute yet
+  musicOn = !musicOn;
+  musicBtn.textContent = "🎵 Music: " + (musicOn ? "On" : "Off");
+}
+
+/* Start (or restart) the chill music. Call this on the first click. */
+function startMusic() {
+  if (!musicOn || audioCtx) return;   // already going, or muted
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = audioCtx.createGain();
+  master.gain.value = 0.5;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 1800;
+  master.connect(filter);
+  filter.connect(audioCtx.destination);
+  audioCtx.masterNode = master;   // so playPad/playMelody can reach it
+  nextNoteTime = audioCtx.currentTime + 0.1;
+  scheduleNotes();
+  musicTimer = setInterval(scheduleNotes, 500);
+}
+
+/* ============================================================
    14. STARTUP
    ============================================================ */
 function init() {
@@ -790,6 +895,18 @@ function init() {
   updateHUD();
   renderLeaderboard();   // show saved scores when the page opens
   showStart();
+
+  // Browsers won't let sound play until the user clicks/taps once,
+  // so wait for the first interaction, then start the chill music.
+  const kickOff = () => {
+    startMusic();
+    document.removeEventListener("pointerdown", kickOff);
+    document.removeEventListener("keydown", kickOff);
+    document.removeEventListener("mousedown", kickOff);
+  };
+  document.addEventListener("pointerdown", kickOff);
+  document.addEventListener("keydown", kickOff);
+  document.addEventListener("mousedown", kickOff);
   // Go fullscreen automatically the moment the page opens.
   setTimeout(enterFullscreen, 300);
 }
