@@ -7,57 +7,44 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <!-- The title at the top -->
-    <header>
-      <h1>🧱 Block Break</h1>
-      <p class="subtitle">Bounce the ball, smash every brick. Made by Lucas.</p>
-    </header>
+  <!-- The whole game lives in one full-screen box -->
+  <div class="game-screen" id="gameScreen">
 
-    <!-- All the game info sits above the play area -->
+    <!-- Score / best / lives (floats at the top) -->
     <div class="hud">
-      <div class="stat">
-        <span class="label">Score</span>
+      <div class="stat" id="stat-score">
+        <span class="label">SCORE</span>
         <span class="value" id="score">0</span>
       </div>
-      <div class="stat">
-        <span class="label">Best</span>
+      <div class="stat stat-lives" id="stat-lives">
+        <span class="label">LIVES</span>
+        <span class="value" id="lives">&#9829;&#9829;&#9829;</span>
+      </div>
+      <div class="stat" id="stat-best">
+        <span class="label">BEST</span>
         <span class="value" id="best">0</span>
       </div>
-      <div class="stat">
-        <span class="label">Lives</span>
-        <span class="value" id="lives">&#10084;&#10084;&#10084;</span>
-      </div>
     </div>
 
-    <!-- The stage is a box that holds the canvas and the message on top -->
-    <div class="stage">
-      <!-- The canvas is where the game is drawn -->
-      <canvas id="gameCanvas" width="800" height="520"></canvas>
+    <!-- The canvas is where the game is drawn (scaled to fill the screen) -->
+    <canvas id="gameCanvas"></canvas>
 
-      <!-- Message that appears over the canvas (Start / Win / Lost) -->
-      <div class="message" id="message">
-        <h2>Ready?</h2>
-        <p>Move your mouse to aim the paddle.<br>Don't let the ball touch the floor!</p>
-        <button id="startBtn" class="btn">▶ Start Game</button>
-      </div>
+    <!-- Message that appears over the game (Start / Win / Lost) -->
+    <div class="message" id="message">
+      <h2 class="msg-title" id="msgTitle">Ready?</h2>
+      <p class="msg-text" id="msgText">Move the paddle with your mouse or the arrow keys.<br>Don't let the ball touch the floor!</p>
+      <button id="startBtn" class="btn btn-big">▶ Start Game</button>
     </div>
 
-    <!-- The buttons under the game -->
+    <!-- Control buttons (floats at the bottom) -->
     <div class="controls">
-      <button id="pauseBtn" class="btn small">⏸ Pause</button>
-      <button id="resumeBtn" class="btn small">▶ Resume</button>
-      <button id="restartBtn" class="btn small">↻ Restart</button>
+      <button id="pauseBtn" class="btn btn-cta">⏸ Pause</button>
+      <button id="resumeBtn" class="btn btn-cta">▶ Resume</button>
+      <button id="restartBtn" class="btn btn-cta">↻ Restart</button>
+      <button id="fullscreenBtn" class="btn btn-cta">⛶ Fullscreen</button>
     </div>
 
-    <!-- Quick instructions for dad -->
-    <div class="howto">
-      <h2>How to play</h2>
-      <p>Move your mouse (or the ← → arrow keys) to slide the paddle.<br>
-         Smash every brick to clear the level. Each level gets a bit faster.<br>
-         Three bricks left to smash on the bottom row give you an extra life.</p>
-    </div>
-  </main>
+  </div>
 
   <script src="game.js"></script>
 </body>
