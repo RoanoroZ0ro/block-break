@@ -1,6 +1,6 @@
 /* game.js - the Block Break game logic.
-   Upgrade: full screen, better graphics, arrow keys that work,
-   and the ball smashes exactly ONE brick per hit.
+   THEME UPGRADE: slick 3D neon (cyan / electric violet, no rainbow).
+   + ball speeds up a little more every stage you clear.
 
    Big idea of THIS version: the game world lives in a fixed
    "logical" space of 960 x 600 units, but the canvas stretches to
@@ -27,7 +27,7 @@ const FLOOR_Y = H - 40;   // danger line near the bottom
 /* Wall thickness. These draw the frame the ball bounces off.
    The ball already collides at the canvas edges (0 and W, top = 0);
    drawing walls right there makes the boundary visible. */
-const WALL = 12;          // visible wall bar thickness (game units)
+const WALL = 12;
 
 /* Brick grid. Bottom rows are worth more points. */
 const ROWS     = 6;
@@ -37,14 +37,16 @@ const BRICK_H  = 24;
 const GAP      = 5;
 const BRICK_TOP = 60;
 
-/* One pretty colour per row (top row first). */
+/* One sleek electric colour per row (top row first).
+   A cool ramp: deep blue-violet at the top -> bright electric cyan
+   at the bottom. We shade each into a 3D bevel when drawing. */
 const BRICK_COLORS = [
-  ["#ff5f6e", "#ff8fa3"], // row 5 (top)    - base + highlight
-  ["#ffa14a", "#ffc27a"],
-  ["#ffd23e", "#ffe993"],
-  ["#6ee7b7", "#a8f5d4"],
-  ["#4dabf7", "#8fd0ff"],
-  ["#b197fc", "#d4bcff"],  // row 0 (bottom)
+  "#4d7cff", // row 5 (top)   deep blue-violet
+  "#3f8eff", // row 4
+  "#31a2ff", // row 3
+  "#24b6ff", // row 2
+  "#18caff", // row 1
+  "#0be6ff", // row 0 (bottom) electric cyan (worth most)
 ];
 /* Points per row (top row is worth least). */
 const BRICK_POINTS = [10, 20, 30, 40, 50, 60];
@@ -52,7 +54,7 @@ const BRICK_POINTS = [10, 20, 30, 40, 50, 60];
 /* ============================================================
    2. GAME STATE
    ============================================================ */
-let canvas, ctx;          // drawing surface
+let canvas, ctx;
 
 let paddle = { x: W / 2 };
 
@@ -66,19 +68,21 @@ let ball = {
 };
 
 let bricks = [];
-let particles = [];       // little burst squares when a brick breaks
+let particles = [];
 let trail = [];           // the ball's fading after-image
-let stars = [];           // background twinkles
+let stars = [];
+let gridX = [];           // pre-made floor-grid vertical lines
+let gridY = [];           // pre-made floor-grid horizontal lines
 
 let score = 0;
 let best = 0;
 let lives = 3;
 let level = 1;
 let running = false;
-let mouseX = null;        // last known mouse x (logical units)
+let mouseX = null;
 
-let scale = 1;            // stretches logical units to screen
-let drawnLevel = 0;       // to show "Level N" briefly at level start
+let scale = 1;
+let drawnLevel = 0;
 
 const savedBest = localStorage.getItem("blockBest");
 if (savedBest) best = Number(savedBest);
@@ -101,7 +105,7 @@ document.getElementById("restartBtn").addEventListener("click",    showStart);
 document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
 startBtn.addEventListener("click", startLevel);
 
-/* Track key held-down state (the new combined keydown handler below
+/* Track key held-down state (the combined keydown handler below
    also adds Space to launch). */
 const KEYS = {};
 document.addEventListener("keyup", (e) => { KEYS[e.key] = false; });
@@ -123,25 +127,20 @@ document.addEventListener("keydown", (e) => {
 
 /* ============================================================
    4. FILL THE SCREEN
-   Looks at the window size and works out how much to stretch
-   the game so it fits, keeping the right shape (aspect ratio).
    ============================================================ */
 function resizeToScreen() {
   const winW = window.innerWidth;
   const winH = window.innerHeight;
-  // Smallest stretch keeps the whole game visible with room around.
   scale = Math.min(winW / W, winH / H);
 
   const cw = Math.round(W * scale);
   const ch = Math.round(H * scale);
 
-  // Make the canvas that many real pixels, so it stays crisp.
   canvasEl.style.width  = cw + "px";
   canvasEl.style.height = ch + "px";
   canvas.width  = cw;
   canvas.height = ch;
 
-  // Centre it on the screen.
   canvasEl.style.left = Math.round((winW - cw) / 2) + "px";
   canvasEl.style.top  = Math.round((winH - ch) / 2) + "px";
 }
@@ -152,7 +151,7 @@ resizeToScreen();
 window.addEventListener("resize", resizeToScreen);
 
 /* ============================================================
-   5. BUILD A LEVEL OF BRICKS
+   5. BUILD A LEVEL + BACKGROUND EFFECTS
    ============================================================ */
 function buildBricks() {
   bricks = [];
@@ -172,14 +171,23 @@ function buildBricks() {
   }
 }
 
-/* Make the background stars once (tiny twinkles behind the action). */
+/* Build the fake 3D floor grid (a few horizontal + vertical neon lines). */
+function makeGrid() {
+  gridX = [];
+  gridY = [];
+  const innerLeft = WALL, innerRight = W - WALL, innerTop = WALL, innerBottom = FLOOR_Y;
+  const step = 40;
+  for (let x = innerLeft; x <= innerRight; x += step) gridX.push(x);
+  for (let y = innerTop; y <= innerBottom; y += step * 0.8) gridY.push(y);
+}
+
 function makeStars() {
   stars = [];
-  for (let i = 0; i < 56; i++) {
+  for (let i = 0; i < 70; i++) {
     stars.push({
       x: Math.random() * W,
       y: Math.random() * H,
-      r: Math.random() * 1.6 + 0.4,
+      r: Math.random() * 1.5 + 0.4,
       tw: Math.random() * Math.PI * 2,
     });
   }
@@ -189,143 +197,233 @@ function makeStars() {
    6. DRAW THE GAME
    ============================================================ */
 function draw() {
-  // Start a new frame using the current screen scale.
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
-  // Fill in the canvas background as a deep space gradient.
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, "#161a3e");
-  bg.addColorStop(1, "#0a0d24");
+  drawBackground();
+  drawWalls();
+  drawBricks();
+  updateTrail();
+  drawTrail();
+  drawParticles();
+  drawBall();
+  drawPaddle();
+
+  if (drawnLevel > 0 && level > 1) {
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = "#7ae9ff";
+    ctx.font = "bold 46px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "rgba(0,220,255,0.9)";
+    ctx.shadowBlur = 18;
+    ctx.fillText("STAGE " + level, W / 2, H / 2 - 70);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* A 3D-ish backdrop: dark space + neon glow + perspective floor grid. */
+function drawBackground() {
+  // Deep radial space glow.
+  const bg = ctx.createRadialGradient(W / 2, H * 0.25, 10, W / 2, H / 2, W * 0.75);
+  bg.addColorStop(0, "#10173c");
+  bg.addColorStop(0.55, "#0a0e22");
+  bg.addColorStop(1, "#04060d");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
+  // Subtle drifting colour blobs (deep cyan + violet nebula feel).
+  const t = Date.now() / 900;
+  ctx.fillStyle = "rgba(20,40,90,0.20)";
+  ctx.beginPath();
+  ctx.arc(W / 2 + Math.sin(t) * 140, H * 0.28 + Math.cos(t * 0.8) * 60, 220, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(60,20,110,0.14)";
+  ctx.beginPath();
+  ctx.arc(W / 2 - Math.cos(t) * 150, H * 0.7, 200, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Perspective floor grid (only in the lower play area).
+  ctx.strokeStyle = "rgba(30,120,220,0.10)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const x of gridX) { ctx.moveTo(x, WALL); ctx.lineTo(x, FLOOR_Y); }
+  for (const y of gridY) { ctx.moveTo(WALL, y); ctx.lineTo(W - WALL, y); }
+  ctx.stroke();
+
   // Twinkle the stars.
-  const t = Date.now() / 400;
+  const tt = Date.now() / 400;
   for (const s of stars) {
-    ctx.fillStyle = "rgba(255,255,255," + (0.3 + 0.5 * Math.abs(Math.sin(s.tw + t))) + ")";
+    ctx.fillStyle = "rgba(190,220,255," + (0.25 + 0.55 * Math.abs(Math.sin(s.tw + tt))) + ")";
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Faint danger line near the floor.
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.setLineDash([12, 10]);
-  ctx.beginPath(); ctx.moveTo(0, FLOOR_Y); ctx.lineTo(W, FLOOR_Y); ctx.stroke();
-  ctx.setLineDash([]);
-
-  drawWalls();
-  drawBricks();
-  updateTrail();
-  drawParticles();
-  drawBall();
-  drawPaddle();
-
-  // "Level N" toast that fades out.
-  if (drawnLevel > 0 && level > 1) {
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 42px Segoe UI";
-    ctx.textAlign = "center";
-    ctx.fillText("Level " + level, W / 2, H / 2 - 60);
-    ctx.globalAlpha = 1;
-  }
+  // Neon danger line near the floor.
+  ctx.strokeStyle = "rgba(0,220,255,0.30)";
+  ctx.lineWidth = 2;
+  ctx.shadowColor = "rgba(0,220,255,0.8)";
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.moveTo(WALL, FLOOR_Y); ctx.lineTo(W - WALL, FLOOR_Y); ctx.stroke();
+  ctx.lineWidth = 1; ctx.shadowBlur = 0;
 }
 
+/* A glowing 3D frame. The ball bounces off these edges. */
+function drawWalls() {
+  // Soft outer glow ring around the whole arena.
+  ctx.strokeStyle = "rgba(0,180,255,0.18)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(WALL - 6, WALL - 6, W - WALL * 2 + 12, H - WALL * 2 + 12);
+
+  // Inner bright neon frame line.
+  ctx.strokeStyle = "rgba(140,235,255,0.7)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(WALL, WALL, W - WALL * 2, H - WALL * 2);
+
+  // Shiny gradient bars on each bouncing side.
+  const gT = ctx.createLinearGradient(0, 0, W, 0);
+  gT.addColorStop(0, "rgba(0,200,255,0.28)");
+  gT.addColorStop(0.5, "rgba(150,130,255,0.30)");
+  gT.addColorStop(1, "rgba(0,90,200,0.22)");
+
+  const gV = ctx.createLinearGradient(0, 0, 0, H);
+  gV.addColorStop(0, "rgba(0,200,255,0.22)");
+  gV.addColorStop(1, "rgba(60,30,160,0.18)");
+
+  ctx.fillStyle = gT;
+  ctx.fillRect(WALL, 0, W - WALL * 2, WALL);       // top bar
+  ctx.fillStyle = gV;
+  ctx.fillRect(0, 0, WALL, H);                    // left bar
+  ctx.fillRect(W - WALL, 0, WALL, H);             // right bar
+}
+
+/* Draw every brick as a glossy 3D bevel block. */
 function drawBricks() {
   for (const b of bricks) {
     if (!b.alive) continue;
-    const [base, hi] = BRICK_COLORS[b.row];
-    // Rounded brick outline.
-    roundRect(b.x, b.y, b.w, b.h, 6);
+    const base = BRICK_COLORS[b.row];
+
+    // 1. Drop shadow under the brick.
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    roundRect(b.x + 2, b.y + 6, b.w, b.h, 6);
+    ctx.fill();
+
+    // 2. A darker slab below + right = fake extrusion (3D depth).
+    ctx.fillStyle = shade(base, -0.55);
+    ctx.beginPath(); ctx.roundRect(b.x + 2, b.y + b.h - 5, b.w, 5, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(b.x + b.w - 4, b.y + 2, 4, b.h - 4, 2); ctx.fill();
+
+    // 3. The main glossy face (lighter on top, darker below).
     const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
-    g.addColorStop(0, hi);
-    g.addColorStop(1, base);
+    g.addColorStop(0,   shade(base, 0.45));
+    g.addColorStop(0.55, base);
+    g.addColorStop(1,   shade(base, -0.18));
     ctx.fillStyle = g;
+    roundRect(b.x, b.y, b.w, b.h, 6);
     ctx.fill();
-    // A bright "shine" strip on top so they look glossy.
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    roundRect(b.x + 8, b.y + 3, b.w - 16, 4, 2);
+
+    // 4. Bright "shine" strip near the top edge.
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    roundRect(b.x + 6, b.y + 2, b.w - 12, 3, 2);
     ctx.fill();
+
+    // 5. A soft neon under-glow near the brick's bottom inner edge.
+    ctx.shadowColor = base;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    roundRect(b.x + 8, b.y + b.h - 5, b.w - 16, 3, 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
   }
 }
 
+/* The paddle: a hovering 3D bar with glowing rails. */
 function drawPaddle() {
   const px = paddle.x - PADDLE_W / 2;
-  const g = ctx.createLinearGradient(px, PADDLE_Y, px, PADDLE_Y + PADDLE_H);
-  g.addColorStop(0, "#8fd0ff");
-  g.addColorStop(0.4, "#4dabf7");
-  g.addColorStop(1, "#2b6bd8");
+  const py = PADDLE_Y;
+
+  // Halo under the paddle.
+  ctx.shadowColor = "rgba(0,229,255,0.9)";
+  ctx.shadowBlur = 16;
+  const g = ctx.createLinearGradient(px, py, px, py + PADDLE_H);
+  g.addColorStop(0,   "#eafaff");
+  g.addColorStop(0.25, "#7adfff");
+  g.addColorStop(1,   "#0b2f6e");
   ctx.fillStyle = g;
-  roundRect(px, PADDLE_Y, PADDLE_W, PADDLE_H, 9);
+  roundRect(px + 2, py, PADDLE_W - 4, PADDLE_H, 8);
   ctx.fill();
-  // A bright shine line along the top edge.
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  roundRect(px + 6, PADDLE_Y + 2, PADDLE_W - 12, 3, 2);
-  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Magenta thruster rails on either side.
+  ctx.fillStyle = "#ff2d7a";
+  roundRect(px + 1, py + 3, 4, PADDLE_H - 4, 2);  ctx.fill();
+  roundRect(px + PADDLE_W - 5, py + 3, 4, PADDLE_H - 4, 2); ctx.fill();
+
+  // Bright top gloss + centre core line.
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  roundRect(px + 8, py + 1, PADDLE_W - 16, 2, 1); ctx.fill();
+  ctx.fillStyle = "rgba(0,229,255,0.45)";
+  roundRect(px + PADDLE_W / 2, py + 4, 2, PADDLE_H - 8, 1); ctx.fill();
 }
 
-/* Draw the frame (walls) the ball bounces off: top, left, right.
-   The ball bounces off the INNER face of these, so a wall bar
-   makes the boundary clear instead of blank space. */
-function drawWalls() {
-  // A thin glowing outline around the whole play area.
-  ctx.strokeStyle = "rgba(90,130,220,0.5)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(WALL / 2, WALL / 2, W - WALL, H - WALL);   // inner frame line
-
-  // A soft glowing bar on each bouncing edge (top, left, right).
-  ctx.fillStyle = "rgba(120,160,255,0.22)";
-  // Top wall
-  ctx.fillRect(0, 0, W, WALL);
-  // Left wall
-  ctx.fillRect(0, 0, WALL, H);
-  // Right wall
-  ctx.fillRect(W - WALL, 0, WALL, H);
-
-  ctx.lineWidth = 1;
+/* The ball: a glowing energy orb with a comet trail. */
+function drawTrail() {
+  for (const t of trail) {
+    ctx.globalAlpha = t.a;
+    ctx.shadowColor = "rgba(40,220,255,0.8)";
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = "#6fe9ff";
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r * t.a + 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
 }
 
 function drawBall() {
-  // Fading trail.
-  for (const t of trail) {
-    ctx.globalAlpha = t.a;
-    ctx.fillStyle = "#ffe66c";
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  // Soft outer glow.
-  ctx.shadowColor = "#ffe66c";
-  ctx.shadowBlur = 18;
-  const g = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 2, ball.x, ball.y, BALL_R);
-  g.addColorStop(0, "#fffbe8");
-  g.addColorStop(0.6, "#ffd23e");
-  g.addColorStop(1, "#ff8c00");
+  // Soft outer glow + layered energy core.
+  ctx.shadowColor = "rgba(60,230,255,0.9)";
+  ctx.shadowBlur = 22;
+  const g = ctx.createRadialGradient(
+    ball.x - BALL_R * 0.35, ball.y - BALL_R * 0.35, 1,
+    ball.x, ball.y, BALL_R
+  );
+  g.addColorStop(0,   "#ffffff");
+  g.addColorStop(0.35, "#c9fbff");
+  g.addColorStop(0.7,  "#3ceaff");
+  g.addColorStop(1,   "#1a7fe0");
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
+
+  // Bright hot core towards the top-left (so it looks lit).
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.beginPath();
+  ctx.arc(ball.x - 1.6, ball.y - 1.6, BALL_R * 0.45, 0, Math.PI * 2);
+  ctx.fill();
 }
 
-/* Particles: update their position and draw them. */
+/* Particles: update position + gravity, draw as tiny glowing squares. */
 function drawParticles() {
   for (const p of particles) {
-    p.vx *= 0.94; p.vy = p.vy * 0.94 + 0.25;  // slow down + gravity
+    p.vx *= 0.94; p.vy = p.vy * 0.94 + 0.25;
     p.x += p.vx; p.y += p.vy;
-    p.life -= 0.06;
+    p.life -= 0.05;
     ctx.globalAlpha = Math.max(p.life, 0);
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
     ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+    ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5);
   }
+  ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
   particles = particles.filter(p => p.life > 0);
 }
 
-/* Fade the ball's after-images so the trail melts away smoothly. */
+/* Fade the ball's after-images so the trail melts away. */
 function updateTrail() {
   for (const t of trail) t.a *= 0.82;
   trail = trail.filter((t) => t.a > 0.05);
@@ -338,8 +436,8 @@ function updateTrail() {
 function frame() {
   if (!running) return;
   movePaddle();
-  if (ball.active) moveBall();          // move the ball + bounce off walls
-  checkBrickCollisions();               // smash bricks (one per hit)
+  if (ball.active) moveBall();
+  checkBrickCollisions();
   checkPaddleHit();
   checkFloor();
   checkWin();
@@ -351,9 +449,6 @@ function frame() {
 
 /* ============================================================
    8. MOVE THE PADDLE (keys beat the mouse)
-   THE FIX: the mouse used to override the keys every single
-   frame. Now, keys are checked FIRST - if you're holding an
-   arrow key, that wins; otherwise the mouse steers.
    ============================================================ */
 function movePaddle() {
   const left  = KEYS["ArrowLeft"];
@@ -365,10 +460,8 @@ function movePaddle() {
   // Only use the mouse when no arrow key is held.
   if (!left && !right && mouseX !== null) paddle.x = mouseX;
 
-  // Keep the paddle inside the play area (the walls).
   paddle.x = clamp(paddle.x, WALL + PADDLE_W / 2, W - WALL - PADDLE_W / 2);
 
-  // If the ball is still resting, it rides along on the paddle.
   if (!ball.active) ball.x = paddle.x;
 }
 
@@ -376,8 +469,7 @@ function movePaddle() {
    9. MOVE THE BALL (with bouncing)
    ============================================================ */
 function moveBall() {
-  // Save a trail dot each frame.
-  trail.push({ x: ball.x, y: ball.y, r: BALL_R * 0.85, a: 0.35 });
+  trail.push({ x: ball.x, y: ball.y, r: BALL_R * 0.85, a: 0.4 });
   if (trail.length > 9) trail.shift();
 
   ball.x += ball.dx;
@@ -389,14 +481,12 @@ function moveBall() {
 }
 
 function checkPaddleHit() {
-  // Only bounce when the ball is moving DOWN and touches the paddle top.
   const over = Math.abs(ball.x - paddle.x) < PADDLE_W / 2 + BALL_R;
   const near = ball.y + BALL_R >= PADDLE_Y && ball.y + BALL_R <= PADDLE_Y + PADDLE_H + 12;
   if (over && ball.dy > 0 && near) {
-    const hit = (ball.x - paddle.x) / (PADDLE_W / 2);    // -1 .. +1
+    const hit = (ball.x - paddle.x) / (PADDLE_W / 2);
     ball.dx = hit * 5;
     ball.dy = -Math.abs(ball.dy);
-    // Guard so the ball can never slide flat along the paddle.
     if (Math.abs(ball.dy) < 3) ball.dy = ball.dy < 0 ? -3 : 3;
     ball.y = PADDLE_Y - BALL_R;
   }
@@ -412,7 +502,6 @@ function checkBrickCollisions() {
   const top    = ball.y - BALL_R;
   const bottom = ball.y + BALL_R;
 
-  // Which brick overlaps the most right now? Break only that one.
   let bestB = null, bestDepth = 0;
   for (const b of bricks) {
     if (!b.alive) continue;
@@ -423,29 +512,27 @@ function checkBrickCollisions() {
   if (!bestB) return;
 
   const b = bestB;
-  // Work out which side we came from and flop the ball that way.
   const pLeft = right - b.x, pRight = b.x + b.w - left;
   const pTop = bottom - b.y, pBottom = b.y + b.h - top;
   const minP = Math.min(pLeft, pRight, pTop, pBottom);
-  if (pTop === minP)      { ball.dy = Math.abs(ball.dy);  ball.y = b.y - BALL_R; }
-  else if (pBottom === minP){ ball.dy = -Math.abs(ball.dy); ball.y = b.y + b.h + BALL_R; }
+  if (pTop === minP)       { ball.dy = Math.abs(ball.dy);  ball.y = b.y - BALL_R; }
+  else if (pBottom === minP) { ball.dy = -Math.abs(ball.dy); ball.y = b.y + b.h + BALL_R; }
   else if (pLeft === minP)  { ball.dx = -Math.abs(ball.dx); ball.x = b.x - BALL_R; }
   else                      { ball.dx = Math.abs(ball.dx);  ball.x = b.x + b.w + BALL_R; }
 
-  // Boom - this one brick breaks (the ONLY one this hit).
   b.alive = false;
   score += BRICK_POINTS[b.row] * level;
   best = Math.max(best, score);
-  burst(b.x + b.w / 2, b.y + b.h / 2, BRICK_COLORS[b.row][0]);
+  burst(b.x + b.w / 2, b.y + b.h / 2, BRICK_COLORS[b.row]);
 }
 
-/* A little explosion of coloured squares. */
+/* A little explosion of glowing neon squares. */
 function burst(x, y, color) {
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 20; i++) {
     particles.push({
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 8,
-      vy: (Math.random() - 0.8) * 8,
+      vx: (Math.random() - 0.5) * 9,
+      vy: (Math.random() - 0.85) * 9,
       life: 1,
       color: color,
     });
@@ -461,12 +548,15 @@ function checkWin() {
 
   level++;
   lives = Math.min(lives + 1, 5);
-  ball.speed = Math.min(7 + (level - 1) * 0.5, 14);
+  /* THE SPEED UP: each cleared stage adds a bit more speed.
+     Starts around 7, builds toward a fast 17. */
+  ball.speed = Math.min(7 + (level - 1) * 0.8, 17);
   buildBricks();
   respawnBall();
   updateHUD();
-  showMessage("Level " + level + " clear!",
-              "You earned an extra life. Click to continue.", "▶ Continue");
+  showMessage("STAGE " + level + " clear!",
+              "The ball got faster. You earned an extra life.\nClick to continue.",
+              "▶ Continue");
 }
 
 function checkFloor() {
@@ -498,7 +588,7 @@ function showStart() {
   buildBricks();
   respawnBall();
   updateHUD();
-  showMessage("Ready?",
+  showMessage("READY?",
               "Move the paddle with your mouse or the arrow keys.\nDon't let the ball touch the floor!",
               "▶ Start Game");
 }
@@ -513,16 +603,16 @@ function startLevel() {
 /* Launch the ball when it's resting on the paddle (a small sideways
    nudge so it doesn't always go perfectly straight up). */
 function launchBall() {
-  if (ball.active) return;              // already moving
+  if (ball.active) return;
   ball.active = true;
-  ball.dx = (Math.random() - 0.5) * 3;  // a little sideways start
-  ball.dy = -ball.speed;                // up (negative y)
+  ball.dx = (Math.random() - 0.5) * 3;
+  ball.dy = -ball.speed;
 }
 
 /* Click / Space: if the ball is resting mid-game (after losing a life),
    launch it. The big Start button handles the menu. */
 function launchIfResting() {
-  if (!running || ball.active) return;  // only when playing + resting
+  if (!running || ball.active) return;
   launchBall();
 }
 
@@ -547,8 +637,10 @@ function showMessage(title, text, btnText) {
 
 function showLose() {
   localStorage.setItem("blockBest", String(best));
-  showMessage("💥 Game over", "You scored " + score +
-              ".\nYour best this session is " + best + ".", "▶ Try Again");
+  showMessage("GAME OVER",
+              "You scored " + score + " reaching stage " + level +
+              ".\nYour best this stage is " + best + ".",
+              "▶ Try Again");
 }
 
 /* ============================================================
@@ -557,11 +649,9 @@ function showLose() {
 function updateHUD() {
   scoreEl.textContent = score;
   bestEl.textContent = Math.max(best, score);
-  // Show only the hearts you actually have (no empties - clearer than "3 of 5").
-  // You start with 3 and can earn up to a few more by clearing levels.
   let hearts = "";
   for (let i = 0; i < lives; i++) hearts += "&#9829;";
-  if (lives <= 0) hearts = "&#9760;";   // no lives left -> grey broken heart
+  if (lives <= 0) hearts = "&#9760;";
   livesEl.innerHTML = hearts;
 }
 
@@ -570,6 +660,7 @@ function updateHUD() {
    ============================================================ */
 function init() {
   makeStars();
+  makeGrid();
   buildBricks();
   respawnBall();
   updateHUD();
@@ -583,4 +674,22 @@ function roundRect(x, y, w, h, r) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
 }
+
+/* Lighten (frac > 0) or darken (frac < 0) a hex colour. */
+function shade(hex, frac) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (frac >= 0) {
+    r = Math.round(r + (255 - r) * frac);
+    g = Math.round(g + (255 - g) * frac);
+    b = Math.round(b + (255 - b) * frac);
+  } else {
+    const t = 1 + frac;
+    r = Math.round(r * t);
+    g = Math.round(g * t);
+    b = Math.round(b * t);
+  }
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(v, hi)); }
