@@ -98,12 +98,28 @@ const messageEl = document.getElementById("message");
 const msgTitle  = document.getElementById("msgTitle");
 const msgText   = document.getElementById("msgText");
 const startBtn  = document.getElementById("startBtn");
+const scoreEntry = document.getElementById("scoreEntry");
+const nameInput  = document.getElementById("nameInput");
+const saveScoreBtn = document.getElementById("saveScoreBtn");
+const leaderboardList = document.getElementById("leaderboardList");
+
+/* The big start button does different things depending on the game state:
+   - on the menu             -> start a new game
+   - "Try Again" (game over) -> reset AND start a new game
+   - "Continue" (stage clear)-> carry on to the next stage
+   We track that with pendingRestart so "Try Again" properly resets. */
+let pendingRestart = false;
 
 document.getElementById("pauseBtn").addEventListener("click",      pauseGame);
 document.getElementById("resumeBtn").addEventListener("click",     resumeGame);
 document.getElementById("restartBtn").addEventListener("click",    showStart);
 document.getElementById("fullscreenBtn").addEventListener("click", toggleFullscreen);
-startBtn.addEventListener("click", startLevel);
+
+startBtn.addEventListener("click", () => {
+  if (pendingRestart) showStart();   // full reset first
+  startLevel();
+});
+saveScoreBtn.addEventListener("click", saveScoreByName);
 
 /* Track key held-down state (the combined keydown handler below
    also adds Space to launch). */
@@ -617,6 +633,8 @@ function respawnBall() {
 function showStart() {
   score = 0; lives = 3; level = 1;
   ball.speed = 8;
+  pendingRestart = false;             // not a restart, hide the name entry
+  hideScoreEntry();
   buildBricks();
   respawnBall();
   updateHUD();
@@ -672,14 +690,81 @@ function showMessage(title, text, btnText) {
   startBtn.textContent = btnText;
   messageEl.style.visibility = "visible";
   running = false;
+  hideScoreEntry();
 }
 
 function showLose() {
   localStorage.setItem("blockBest", String(best));
+  // "Try Again" must fully reset the game, so flag it.
+  pendingRestart = true;
   showMessage("GAME OVER",
               "You scored " + score + " reaching stage " + level +
-              ".\nYour best this stage is " + best + ".",
+              ".\nYour best this session is " + best + ".",
               "▶ Try Again");
+  // Let the player type their name to save the score.
+  if (score > 0) showScoreEntry();
+}
+
+/* ============================================================
+   LEADERBOARD - saves scores to the browser so they survive a
+   close-and-reopen. Stored under "blockLeaderboard".
+   ============================================================ */
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem("blockLeaderboard");
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+
+function saveLeaderboard(list) {
+  localStorage.setItem("blockLeaderboard", JSON.stringify(list.slice(0, 8)));
+}
+
+function renderLeaderboard() {
+  const list = loadLeaderboard();
+  leaderboardList.innerHTML = "";
+  if (list.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No scores yet. Go smash some bricks!";
+    leaderboardList.appendChild(li);
+    return;
+  }
+  list.forEach((entry, i) => {
+    const li = document.createElement("li");
+    if (i === 0) li.className = "top";
+    const name = document.createElement("span");
+    name.className = "lname";
+    name.textContent = (i + 1) + ". " + entry.name;
+    const sc = document.createElement("span");
+    sc.className = "lscore";
+    sc.textContent = entry.score;
+    li.appendChild(name);
+    li.appendChild(sc);
+    leaderboardList.appendChild(li);
+  });
+}
+
+function showScoreEntry() {
+  scoreEntry.style.display = "flex";
+  nameInput.value = "";
+  nameInput.focus();
+}
+
+function hideScoreEntry() {
+  scoreEntry.style.display = "none";
+}
+
+function saveScoreByName() {
+  const name = ((nameInput.value || "").trim() || "Player").slice(0, 12);
+  const list = loadLeaderboard();
+  list.push({ name: name, score: score, stage: level });
+  list.sort((a, b) => b.score - a.score);   // best score first
+  saveLeaderboard(list);
+  renderLeaderboard();
+  hideScoreEntry();
 }
 
 /* ============================================================
@@ -703,6 +788,7 @@ function init() {
   buildBricks();
   respawnBall();
   updateHUD();
+  renderLeaderboard();   // show saved scores when the page opens
   showStart();
   // Go fullscreen automatically the moment the page opens.
   setTimeout(enterFullscreen, 300);

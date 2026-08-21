@@ -33,7 +33,20 @@
     <div class="message" id="message">
       <h2 class="msg-title" id="msgTitle">Ready?</h2>
       <p class="msg-text" id="msgText">Move the paddle with your mouse or the arrow keys.<br>Don't let the ball touch the floor!</p>
+
+      <!-- Name entry that shows when you lose, to save your score -->
+      <div class="score-entry" id="scoreEntry" style="display:none">
+        <input id="nameInput" maxlength="12" placeholder="Your name" autocomplete="off">
+        <button id="saveScoreBtn" class="btn btn-save">Save to leaderboard ➜</button>
+      </div>
+
       <button id="startBtn" class="btn btn-big">▶ Start Game</button>
+    </div>
+
+    <!-- Leaderboard panel, always visible on the side -->
+    <div class="leaderboard" id="leaderboard">
+      <h3>🏆 Top Scores</h3>
+      <ol id="leaderboardList"></ol>
     </div>
 
     <!-- Control buttons (floats at the bottom) -->
