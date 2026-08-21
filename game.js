@@ -63,7 +63,7 @@ let ball = {
   y: PADDLE_Y - 40,
   dx: 0,
   dy: 0,
-  speed: 7,
+  speed: 8,
   active: false,          // false = resting on the paddle
 };
 
@@ -200,6 +200,7 @@ function draw() {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   drawBackground();
+  drawWallAura();      // breathing aurora that frames the arena
   drawWalls();
   drawBricks();
   updateTrail();
@@ -259,13 +260,37 @@ function drawBackground() {
     ctx.fill();
   }
 
-  // Neon danger line near the floor.
-  ctx.strokeStyle = "rgba(0,220,255,0.30)";
+  // Neon danger line near the floor (pulses with the aura).
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
+  ctx.strokeStyle = "rgba(0,220,255," + (0.25 + pulse * 0.35) + ")";
   ctx.lineWidth = 2;
-  ctx.shadowColor = "rgba(0,220,255,0.8)";
-  ctx.shadowBlur = 10;
+  ctx.shadowColor = "rgba(0,220,255,0.9)";
+  ctx.shadowBlur = 14 + pulse * 12;
   ctx.beginPath(); ctx.moveTo(WALL, FLOOR_Y); ctx.lineTo(W - WALL, FLOOR_Y); ctx.stroke();
   ctx.lineWidth = 1; ctx.shadowBlur = 0;
+}
+
+/* Breathing aurora: a soft glowing halo that pulses around the arena. */
+function drawWallAura() {
+  const t = Date.now() / 400;
+  const pulse = 0.5 + 0.5 * Math.sin(t);   // 0..1, slow breathing
+
+  // A wide soft glow that hugs the play area and breathes.
+  const r = ctx.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, W * 0.85);
+  r.addColorStop(0, "rgba(0,150,255," + (0.10 + pulse * 0.10) + ")");
+  r.addColorStop(0.6, "rgba(120,80,255," + (0.06 + pulse * 0.06) + ")");
+  r.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = r;
+  ctx.fillRect(0, 0, W, H);
+
+  // A glowing pulsing outline right on the inner frame.
+  ctx.strokeStyle = "rgba(90,220,255," + (0.25 + pulse * 0.45) + ")";
+  ctx.lineWidth = 6;
+  ctx.shadowColor = "rgba(60,180,255,0.9)";
+  ctx.shadowBlur = 26 + pulse * 18;
+  ctx.strokeRect(WALL, WALL, W - WALL * 2, H - WALL * 2);
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 1;
 }
 
 /* A glowing 3D frame. The ball bounces off these edges. */
@@ -382,9 +407,16 @@ function drawTrail() {
 }
 
 function drawBall() {
+  // Pulsing aura halo around the ball.
+  const ap = 0.5 + 0.5 * Math.sin(Date.now() / 250);
+  ctx.fillStyle = "rgba(0,200,255," + (0.10 + ap * 0.12) + ")";
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, BALL_R * 2.6 + ap * 3, 0, Math.PI * 2);
+  ctx.fill();
+
   // Soft outer glow + layered energy core.
   ctx.shadowColor = "rgba(60,230,255,0.9)";
-  ctx.shadowBlur = 22;
+  ctx.shadowBlur = 26 + ap * 8;
   const g = ctx.createRadialGradient(
     ball.x - BALL_R * 0.35, ball.y - BALL_R * 0.35, 1,
     ball.x, ball.y, BALL_R
@@ -548,9 +580,9 @@ function checkWin() {
 
   level++;
   lives = Math.min(lives + 1, 5);
-  /* THE SPEED UP: each cleared stage adds a bit more speed.
-     Starts around 7, builds toward a fast 17. */
-  ball.speed = Math.min(7 + (level - 1) * 0.8, 17);
+  /* THE SPEED UP: each cleared stage is 10% faster than the last.
+     Starts around 8, keeps multiplying until it hits a fast cap. */
+  ball.speed = Math.min(8 * Math.pow(1.1, level - 1), 22);
   buildBricks();
   respawnBall();
   updateHUD();
@@ -584,7 +616,7 @@ function respawnBall() {
    ============================================================ */
 function showStart() {
   score = 0; lives = 3; level = 1;
-  ball.speed = 7;
+  ball.speed = 8;
   buildBricks();
   respawnBall();
   updateHUD();
@@ -627,6 +659,13 @@ function toggleFullscreen() {
   }
 }
 
+/* Go fullscreen (used automatically when the page opens). */
+function enterFullscreen() {
+  if (document.fullscreenElement) return;
+  document.documentElement.requestFullscreen().catch(() => {});
+  setTimeout(resizeToScreen, 60);
+}
+
 function showMessage(title, text, btnText) {
   msgTitle.textContent = title;
   msgText.textContent = text;
@@ -665,6 +704,8 @@ function init() {
   respawnBall();
   updateHUD();
   showStart();
+  // Go fullscreen automatically the moment the page opens.
+  setTimeout(enterFullscreen, 300);
 }
 
 init();
